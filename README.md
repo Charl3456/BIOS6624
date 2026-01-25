@@ -58,7 +58,7 @@ Not all projects will necessarily use every subfolder.
 ## Author
 
 **Yunjing Hong**  
-MS/PhD Student, Biostatistics  
+PhD Student, Biostatistics  
 University of Colorado Anschutz Medical Campus  
 
 ## Date
