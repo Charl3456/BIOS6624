@@ -1,0 +1,27 @@
+---
+title: "Project_0 Data Analysis"
+output:
+  pdf_document: default
+  html_document: default
+date: "2025-09-30"
+---
+
+```{r setup, include=FALSE}
+library(knitr)
+library(tidyverse)
+library(emmeans)    
+library(ggplot2)
+library(gtsummary)
+library(gt)
+library(broom)
+library(car)
+library(nlme)
+library(janitor)
+library(flextable)
+library(gridExtra)
+knitr::opts_chunk$set(echo = TRUE)
+labs = knitr::all_labels()
+labs = labs[!labs %in% c("setup", "llm_appendix", "allcode")]
+data_0 <- read_csv("../DataRaw/Project0_Clean_v2.csv")
+View(data_0)
+```
