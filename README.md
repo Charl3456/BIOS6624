@@ -59,7 +59,7 @@ Not all projects will necessarily use every subfolder.
 
 **Yunjing Hong**  
 PhD Student, Biostatistics  
-University of Colorado Anschutz Medical Campus  
+University of Colorado Anschutz Medical Campus 
 
 ## Date
 
