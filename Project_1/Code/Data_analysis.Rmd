@@ -1,6 +1,6 @@
 ---
 title: "Treatment Response and Hard Drug Use in HIV-Infected Men on HAART"
-author: "Camille Moore (Advanced Statistical Methods)"
+author: "Charlotte_Yunjing_Hong"
 date: "`r Sys.Date()`"
 output:
   pdf_document:
