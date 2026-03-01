@@ -74,50 +74,6 @@ Project_1/
 
 ---
 
-## How to Reproduce
-
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/<your-username>/Project_1.git
-```
-
-### 2. Place raw data
-
-Download `hiv_6624_final (3).csv` and place it in `Raw_data/`.
-
-### 3. Install R packages
-
-```r
-install.packages(c("tidyverse", "tableone", "knitr", "kableExtra",
-                   "patchwork", "posterior", "bayesplot", "loo", "HDInterval"))
-
-# cmdstanr (not on CRAN)
-install.packages("cmdstanr", repos = c("https://stan-dev.r-universe.dev", getOption("repos")))
-library(cmdstanr)
-install_cmdstan()
-```
-
-### 4. Update the file path
-
-In `Code/hiv_haart_analysis.Rmd`, update `proj_root` at the top of the file to match your local path:
-
-```r
-proj_root <- "your/local/path/to/Project_1"
-```
-
-### 5. Knit the document
-
-Open `hiv_haart_analysis.Rmd` in RStudio and click **Knit**, or run:
-
-```r
-rmarkdown::render("Code/hiv_haart_analysis.Rmd")
-```
-
-`Figures/` and `Tables/` will be created automatically.
-
----
-
 ## Key Findings
 
 | Outcome | Frequentist β | p-value | Direction |
