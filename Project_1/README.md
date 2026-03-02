@@ -48,7 +48,7 @@ Four treatment response outcomes are examined at Year 2:
 Project_1/
 ├── Code/
 │   └── hiv_haart_analysis.Rmd     # Main analysis file
-├── Raw_data/                       # ⚠️ Not tracked (see .gitignore)
+├── DataRaw/                       # ⚠️ Not tracked (see .gitignore)
 │   └── hiv_6624_final (3).csv
 ├── Figures/                        # Auto-generated on knit
 │   ├── fig1_adherence_by_drug_use.png
