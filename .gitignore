@@ -48,12 +48,11 @@ po/*~
 # RStudio Connect folder
 rsconnect/
 
-# Raw data files
-Raw_data/
-*.csv
-*.xlsx
-*.xls
-*.sas7bdat
-*.dta
-*.rds
-*.RDS
+# Ignore data files ONLY inside raw_data and processed_data folders (any level)
+**/raw_data/*.csv
+**/raw_data/*.rds
+**/raw_data/*.RDS
+
+**/processed_data/*.csv
+**/processed_data/*.rds
+**/processed_data/*.RDS
