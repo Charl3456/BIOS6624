@@ -51,22 +51,25 @@ Project_2/
 ├── Code/
 │   ├── Project2_PowerAnalysis.R    # Standalone power analysis script
 │   └── Project2_Report.Rmd         # Report source (knit to produce final PDF)
-├── DataRaw/
+├── DataRaw/                        # ⚠️ Not tracked (see .gitignore)
 │   └── PrelimData.csv              # Preliminary data (n = 30)
 ├── Results/
 │   ├── Aim1_PowerTable.csv         # Aim 1 power table
 │   ├── Aim2_PowerTable.csv         # Aim 2 power table
 │   └── Project2_PowerCurves.pdf    # Power curve figure (Figure 1)
+├── .gitignore
 └── README.md
 ```
 
-**Absolute paths (from repository root):**
+> Raw data are excluded from version control per data sharing restrictions. The data are not publicly available. Contact the author for access questions.
+
+**Absolute paths:**
 
 | File | Path |
 |------|------|
+| Preliminary data (local, not on GitHub) | `C:/Users/yunji/Desktop/College/CU Anschutz/2026 Spring/Advanced stats/BIOS6624/Project_2/DataRaw/PrelimData.csv` |
 | Power analysis script | `BIOS6624/Project_2/Code/Project2_PowerAnalysis.R` |
 | Report source | `BIOS6624/Project_2/Code/Project2_Report.Rmd` |
-| Preliminary data | `BIOS6624/Project_2/DataRaw/PrelimData.csv` |
 | Aim 1 power table | `BIOS6624/Project_2/Results/Aim1_PowerTable.csv` |
 | Aim 2 power table | `BIOS6624/Project_2/Results/Aim2_PowerTable.csv` |
 | Power curves figure | `BIOS6624/Project_2/Results/Project2_PowerCurves.pdf` |
