@@ -1,0 +1,173 @@
+---
+author: ""
+date: ""
+output:
+  pdf_document:
+    latex_engine: xelatex
+fontsize: 12pt
+header-includes:
+  - \usepackage{setspace}
+  - \doublespacing
+  - \usepackage[margin=1in]{geometry}
+  - \usepackage{titlesec}
+  - \titleformat{\section}{\normalsize\bfseries}{\thesection}{1em}{}
+  - \titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
+  - \titlespacing*{\section}{0pt}{12pt}{6pt}
+  - \titlespacing*{\subsection}{0pt}{12pt}{6pt}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, message = FALSE, warning = FALSE)
+library(pwr)
+library(knitr)
+prelim <- read.csv("../DataRaw/PrelimData.csv")
+N <- 175
+alpha1 <- 0.05
+alpha2 <- 0.0125
+obs_r <- c(IL6_Mem = 0.259, IL6_Cort = 0.599, MCP1_Mem = 0.318, MCP1_Cort = 0.685)
+u <- 1
+v <- N - 10 - 1
+```
+
+\begin{center}
+\textbf{Data Analysis Plan and Power Justification: Aims 1 and 2}
+\end{center}
+
+## Introduction
+
+This report provides the analysis plan and sample size justification for Aims 1 and 2 of a longitudinal study of innate immune mechanisms of cognitive decline in amnestic mild cognitive impairment (aMCI). Data are collected at baseline and one-year follow-up at the Rocky Mountain Alzheimer's Disease Center (RMADC). Measures include peripheral plasma cytokine/chemokine panels (IL-6, TNF-$\alpha$, MCP-1, Eotaxin-1), cognitive assessments, structural MRI, and Florbetapir-PET amyloid imaging (global SUVR). Six outcomes will be analyzed separately as one-year change scores: five memory measures (CVLT 20-minute delayed recall, CVLT recognition d-prime, Benson Figure 15-minute delayed recall, MST pattern separation proportion correct, and Story Recall 1-week delayed recall) and AD-signature mean cortical thickness (FreeSurfer 5.1). The target enrollment is 137 aMCI and 55 healthy controls (HC; N = 192), yielding N = 175 after 10% attrition. A preliminary dataset (*n* = 30) was provided to inform effect size estimates.
+
+The scientific hypotheses translate to the following statistical tests. **H1a:** A significant negative regression coefficient for baseline cytokine/chemokine level predicting one-year decline in each outcome. **H1b:** A significant negative regression coefficient for change in cytokine/chemokine level predicting the corresponding decline. **H2:** A significant cytokine $\times$ amyloid SUVR interaction coefficient, indicating steeper decline when both elevated inflammation and significant amyloid burden are present.
+
+## Methods
+
+**Data Handling.** Distributional properties of cytokine/chemokine variables will be examined via Q-Q plots and Shapiro-Wilk tests; log-transformation will be applied only if warranted (preliminary tests suggest normality; all *p* > 0.09). Values below the detection limit will be substituted at half that limit; outliers exceeding 4 SD will be flagged. Primary analyses will use available cases under a missing-at-random assumption; multiple imputation will serve as a sensitivity analysis if dropout is associated with baseline characteristics.
+
+**Aim 1.** Multivariable linear regression will model each one-year change score (follow-up minus baseline) as the outcome, with the baseline outcome value as a covariate to adjust for regression to the mean. For H1a, the predictor is baseline cytokine level; for H1b, the cytokine change score. Separate models will be fit for each of four markers across each of six outcomes: CVLT delayed recall, CVLT recognition d-prime, Benson Figure delayed recall, MST pattern separation, Story Recall 1-week delay, and AD-signature cortical thickness. Markers will not serve as simultaneous predictors due to extreme inter-marker correlation (preliminary IL-6/MCP-1: *r* = 0.93). Hypotheses are tested via two-sided *t*-tests on the cytokine regression coefficient. All models adjust for age, sex, APOE ε4, BMI, hypercholesterolemia, NSAID use, immune-related conditions, and diagnostic group (aMCI vs. HC). Both groups are combined to maximize cytokine and outcome range; effect modification by group will be examined secondarily. Collinearity will be assessed via VIF (>5 triggers investigation) and the change-in-estimate criterion (>10% change warrants retention). Total cortical thickness will be included in the cortical thickness model to isolate AD-signature effects. Table A1 (Appendix) summarizes all variables.
+
+**Aim 2.** Aim 2 extends Aim 1 by adding baseline amyloid SUVR and its product interaction with each cytokine. The primary test of H2 is the interaction coefficient, evaluated via a *t*-test (equivalently, an *F*-test with 1 numerator df for the R² increment). Both main effects and the same covariates from Aim 1 are included. Secondarily, amyloid will be dichotomized (SUVR $\geq$ 1.10); significant interactions will be probed via simple slopes at $\pm 1$ SD of the cytokine, yielding a $2 \times 2$ pattern. The hypothesis predicts the steepest decline in the amyloid-positive/high-inflammation cell. Sensitivity analyses stratified by APOE ε4 will evaluate whether the interaction differs by genotype.
+
+**Multiple Comparisons.** Within each of the six outcomes, false discovery rate (FDR; Benjamini-Hochberg, *q* < 0.05) will be applied across the four inflammatory markers. FDR is preferred over Bonferroni because the markers are substantially correlated (preliminary *r* up to 0.93), making family-wise error control overly conservative. Bonferroni ($\alpha / 4$ = 0.0125) will be a sensitivity analysis. The six outcomes will not be corrected across one another; concordant patterns across related outcomes will be interpreted as strengthening overall evidence.
+
+## Power Analysis and Sample Size Justification
+
+```{r power-calcs}
+mde1 <- round(pwr.r.test(n = N, power = 0.80, sig.level = alpha1)$r, 3)
+mde2 <- round(pwr.r.test(n = N, power = 0.80, sig.level = alpha2)$r, 3)
+weakest_p1 <- round(pwr.r.test(n = N, r = 0.259, sig.level = alpha1)$power * 100)
+weakest_p2 <- round(pwr.r.test(n = N, r = 0.259, sig.level = alpha2)$power * 100)
+mde_f2_1 <- round(pwr.f2.test(u = u, v = v, power = 0.80, sig.level = alpha1)$f2, 3)
+mde_f2_2 <- round(pwr.f2.test(u = u, v = v, power = 0.80, sig.level = alpha2)$f2, 3)
+```
+
+We estimated power for N = `r N` (125 aMCI + 50 HC, after 10% attrition from 192 enrolled). Effect sizes were derived from Pearson correlations in the preliminary dataset (*n* = 30), ranging from |*r*| = 0.26 (IL-6 vs. memory change) to |*r*| = 0.69 (MCP-1 vs. cortical thickness change). All tests were two-sided; power is presented at $\alpha$ = 0.05 and $\alpha$ = 0.0125 (Bonferroni $\alpha / 4$), with the effective FDR threshold falling between these values.
+
+**Aim 1.** Power was estimated using `pwr.r.test()` (R `pwr` package), approximating the adjusted regression as a bivariate correlation — conservative since covariate adjustment generally increases precision. The minimum detectable |*r*| at 80% power was `r mde1` ($\alpha$ = 0.05) and `r mde2` ($\alpha$ = 0.0125). The weakest preliminary signal (IL-6/memory, |*r*| = 0.26) achieved `r weakest_p1`% and `r weakest_p2`% power; all stronger associations exceeded 96% at either level (Table 1, Figure 1A).
+
+**Aim 2.** Power for the interaction R² increment was estimated using `pwr.f2.test()` (R `pwr` package; 10 predictors, numerator df = 1, denominator df = `r v`). The minimum detectable f² at 80% power was `r mde_f2_1` ($\alpha$ = 0.05) and `r mde_f2_2` ($\alpha$ = 0.0125), both small-to-medium by Cohen's benchmarks. At f² = 0.05, power was 82% ($\alpha$ = 0.05); at f² = 0.08, power reached 87% at $\alpha$ = 0.0125 (Table 2, Figure 1B). Assuming R²~full~ $\approx$ 0.30, the detectable interaction corresponds to ΔR² $\approx$ 3.4%. The proposed N is justified by RMADC enrollment feasibility.
+
+\newpage
+
+## Tables and Figures
+
+```{r table1}
+r_range <- seq(0.10, 0.50, by = 0.05)
+aim1_table <- data.frame(
+  `|r|` = r_range,
+  `Power (a = 0.05)` = sapply(r_range, function(r)
+    round(pwr.r.test(n=N, r=r, sig.level=alpha1)$power, 3)),
+  `Power (a = 0.0125)` = sapply(r_range, function(r)
+    round(pwr.r.test(n=N, r=r, sig.level=alpha2)$power, 3)),
+  check.names = FALSE
+)
+kable(aim1_table,
+      caption = "Aim 1 Power: Bivariate Correlation Test (N = 175, two-sided). Computed using pwr.r.test(), R pwr package. Preliminary |r| ranged 0.26 to 0.69.",
+      align = "c")
+```
+
+```{r table2}
+f2_range <- c(0.02, 0.03, 0.04, 0.05, 0.06, 0.08, 0.10, 0.15)
+aim2_table <- data.frame(
+  `f2` = f2_range,
+  `dR2` = round(f2_range * 0.70, 4),
+  `Power (a = 0.05)` = sapply(f2_range, function(f2)
+    round(pwr.f2.test(u=u, v=v, f2=f2, sig.level=alpha1)$power, 3)),
+  `Power (a = 0.0125)` = sapply(f2_range, function(f2)
+    round(pwr.f2.test(u=u, v=v, f2=f2, sig.level=alpha2)$power, 3)),
+  check.names = FALSE
+)
+kable(aim2_table,
+      caption = "Aim 2 Power: Interaction F-test (N = 175, u = 1, v = 164). Computed using pwr.f2.test(), R pwr package. dR2 approximated assuming R2_full = 0.30. Cohen benchmarks: small = 0.02, medium = 0.15.",
+      align = "c")
+```
+
+```{r figure1, fig.cap="Power curves for Aim 1 (bivariate correlation) and Aim 2 (interaction F-test) at N = 175. Solid blue: alpha = 0.05; dashed orange: alpha = 0.0125 (Bonferroni alpha/4). Red triangles in Panel A mark preliminary data correlations.", fig.width=10, fig.height=5}
+r_seq  <- seq(0.05, 0.55, by = 0.005)
+f2_seq <- seq(0.005, 0.20, by = 0.002)
+
+par(mfrow = c(1, 2), mar = c(5, 4.5, 3, 1))
+
+plot(r_seq,
+     sapply(r_seq, function(r) pwr.r.test(n=N, r=r, sig.level=alpha1)$power),
+     type = "l", lwd = 2, col = "steelblue",
+     xlab = "Correlation |r|", ylab = "Power",
+     main = "A. Aim 1: Correlation Test", ylim = c(0, 1), las = 1)
+lines(r_seq,
+      sapply(r_seq, function(r) pwr.r.test(n=N, r=r, sig.level=alpha2)$power),
+      lwd = 2, col = "darkorange", lty = 2)
+abline(h = 0.80, lty = 3, col = "gray40")
+points(obs_r, rep(0.02, 4), pch = 17, col = "red", cex = 1.2)
+text(obs_r, rep(0.09, 4), names(obs_r), cex = 0.65, col = "red", srt = 45, adj = 0)
+legend("bottomright",
+       legend = c(expression(alpha == 0.05), expression(alpha == 0.0125)),
+       col = c("steelblue", "darkorange"), lty = c(1, 2), lwd = 2, bty = "n")
+mtext(sprintf("N = %d, two-sided", N), side = 3, line = 0.3, cex = 0.8)
+
+plot(f2_seq,
+     sapply(f2_seq, function(f2) pwr.f2.test(u=u, v=v, f2=f2, sig.level=alpha1)$power),
+     type = "l", lwd = 2, col = "steelblue",
+     xlab = expression(paste("Effect size ", f^2)), ylab = "Power",
+     main = "B. Aim 2: Interaction F-test", ylim = c(0, 1), las = 1)
+lines(f2_seq,
+      sapply(f2_seq, function(f2) pwr.f2.test(u=u, v=v, f2=f2, sig.level=alpha2)$power),
+      lwd = 2, col = "darkorange", lty = 2)
+abline(h = 0.80, lty = 3, col = "gray40")
+abline(v = c(0.02, 0.15), lty = 3, col = "gray70")
+text(c(0.025, 0.155), c(0.15, 0.15), c("small", "medium"), cex = 0.7, col = "gray50")
+legend("bottomright",
+       legend = c(expression(alpha == 0.05), expression(alpha == 0.0125)),
+       col = c("steelblue", "darkorange"), lty = c(1, 2), lwd = 2, bty = "n")
+mtext(sprintf("N = %d, u = %d, v = %d", N, u, v), side = 3, line = 0.3, cex = 0.8)
+```
+
+\newpage
+
+## Appendix
+
+**Table A1. Variable Summary by Role**
+
+| Role | Variable | Type | Measurement / Coding |
+|------|----------|------|----------------------|
+| Outcome 1 | Change in CVLT delayed recall | Continuous | 20-min delay, total correct; follow-up - baseline |
+| Outcome 2 | Change in CVLT recognition | Continuous | Recognition d-prime; follow-up - baseline |
+| Outcome 3 | Change in Benson Figure recall | Continuous | 15-min delay, total correct; follow-up - baseline |
+| Outcome 4 | Change in MST pattern separation | Continuous | Proportion correct; follow-up - baseline |
+| Outcome 5 | Change in Story Recall | Continuous | 1-week delay, total correct; follow-up - baseline |
+| Outcome 6 | Change in AD-signature cortical thickness | Continuous | FreeSurfer 5.1 AD-signature ROI; follow-up - baseline |
+| Primary Predictor (Aim 1) | Plasma cytokines/chemokines (IL-6, TNF-a, MCP-1, Eotaxin-1) | Continuous | pg/mL; transform if warranted; H1a: baseline; H1b: change |
+| Primary Predictor (Aim 2) | Amyloid SUVR x cytokine interaction | Continuous; Binary | Primary: SUVR x cytokine product; Secondary: amyloid-pos/neg (SUVR >= 1.10) x cytokine |
+| Covariates (All Models) | Age, sex, APOE e4, BMI, hypercholesterolemia, NSAID use, immune conditions, diagnostic group, baseline outcome | Continuous; Binary | Pre-specified; baseline outcome adjusts for regression to the mean |
+
+\newpage
+
+## Reproducible Research
+
+**Data location:** `Project_2/DataRaw/PrelimData.csv`
+
+**Code location:** `Project_2/Code/Project2_PowerAnalysis.R` (standalone power analysis); `Project_2/Code/Project2_Report.Rmd` (this report)
+
+**Results location:** `Project_2/Results/` (power tables as CSV; power curve figure as PDF)
+
+**GitHub repository:** https://github.com/Charl3456/BIOS6624.git
+
+**Software:** R version 4.4.1; `pwr` package (functions: `pwr.r.test()`, `pwr.f2.test()`)
