@@ -4,9 +4,6 @@
 
 Analysis of the Framingham Heart Study data to identify important risk factors of stroke and compute 10-year stroke probabilities based on different risk profiles, stratified by sex (M/F). Conducted for BIOS 6624, Spring 2026.
 
-**Investigators:** Elizabeth Wynn  
-**Analysts:** [Your Name]
-
 ## Research Question
 
 Are candidate cardiovascular risk factors (prevalent CHD, BP medications, current smoking, total cholesterol, BMI) associated with 10-year stroke risk after adjusting for age, diabetes, and systolic blood pressure? Do these associations differ between men and women?
