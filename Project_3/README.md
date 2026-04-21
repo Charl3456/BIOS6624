@@ -37,14 +37,18 @@ Project_3/
 ## How to Reproduce
 
 1. Clone the repository and navigate to `Project_3/`.
-2. Ensure R (>= 4.4) and the following packages are installed:
+2. The raw data file is located at:
+   ```
+   C:\Users\yunji\Documents\College\CU Anschutz\2026 Spring\Advanced stats\BIOS6624\Project_3\DataRaw\frmgham2.csv
+   ```
+3. Ensure R (>= 4.4) and the following packages are installed:
    - `survival`, `survminer`, `gtsummary`, `ggplot2`, `dplyr`, `tidyr`, `knitr`, `kableExtra`, `gridExtra`, `xtable`, `flextable`
-3. To generate all tables and figures independently:
+4. To generate all tables and figures independently:
    ```r
    setwd("Code/")
    source("Interim_analysis.R")
    ```
-4. To generate the final PDF report:
+5. To generate the final PDF report:
    - Open `Code/Final_Report.Rmd` in RStudio
    - Knit to PDF (requires TinyTeX or another LaTeX distribution: `tinytex::install_tinytex()`)
 
