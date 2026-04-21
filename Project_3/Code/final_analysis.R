@@ -160,7 +160,7 @@ tab1_tex <- tab1 %>%
 writeLines(tab1_tex, paste0(tab_dir, "Table1_Baseline.tex"))
 cat("  Saved:", paste0(tab_dir, "Table1_Baseline.tex"), "\n")
 
-# Save Table 1 as .png via flextable — white background to match other tables
+# Save Table 1 as .png via flextable
 tab1 %>%
   as_flex_table() %>%
   flextable::bg(bg = "white", part = "all") %>%
@@ -188,8 +188,7 @@ print(p_km_sex)
 dev.off()
 cat("  Saved:", paste0(fig_dir, "Figure1_KM_by_Sex.png"), "\n")
 
-# KM by Diabetes, STRATIFIED BY SEX (per Wynn feedback: analysis is stratified
-# by sex, so KM curves should be shown within sex strata as well).
+# KM by Diabetes, STRATIFIED BY SEX 
 km_dm_sex <- survfit(Surv(time_years, stroke_10yr) ~ diabetes_label + sex_label,
                      data = baseline)
 sdf_dm <- surv_summary(km_dm_sex, data = baseline)
@@ -209,7 +208,6 @@ p_km_dm_sex <- ggplot(sdf_dm, aes(x = time, y = surv, color = group, fill = grou
 save_fig(p_km_dm_sex, "Figure2_KM_by_Diabetes_bySex", w = 10, h = 5)
 
 # Additional KM curves for other candidate risk factors
-# (per Wynn feedback: "Will you look at curves for any other variables?").
 # All stratified by sex to match the primary analysis structure.
 baseline <- baseline %>%
   mutate(
@@ -220,8 +218,6 @@ baseline <- baseline %>%
     bpmeds_label  = factor(BPMEDS,   levels = c(0,1),
                            labels = c("No BP meds","On BP meds")),
     # dichotomize age and SBP at clinically meaningful cut-points
-    # NOTE: avoid <, =, > in level labels -- surv_summary() parses strata
-    # strings by splitting on "=" and ","; operator chars break it.
     age_cat       = factor(ifelse(AGE   >= 55,  "Age 55+",  "Age under 55"),
                            levels = c("Age under 55", "Age 55+")),
     sbp_cat       = factor(ifelse(SYSBP >= 140, "SBP 140+", "SBP under 140"),
@@ -229,9 +225,7 @@ baseline <- baseline %>%
   )
 
 km_extra <- function(var, ylim_low, fname, title_lab) {
-  # Build survfit with the variable passed by name (avoids ggsurvplot_facet's
-  # formula-reparsing bug that throws "object of type 'symbol' is not
-  # subsettable" when the formula is constructed via as.formula(paste(...))).
+  # Build survfit with the variable passed by name
   f   <- reformulate(c(var, "sex_label"), response = quote(Surv(time_years, stroke_10yr)))
   fit <- survfit(f, data = baseline)
   
@@ -362,37 +356,6 @@ individual_test <- function(data, sure_vars, quest_vars, sex_label) {
   return(results)
 }
 
-# ----------------------------------------------------------------------------
-# NOTES TO ADDRESS IN WRITEUP (Wynn feedback):
-#
-# 1) Individual vs. joint LRT (prof: "Are there any limitations to testing
-#    variables individually? Might you miss variables only informative in the
-#    presence of other variables?")
-#    - YES. A variable with a weak marginal association but strong adjusted
-#      association (classic confounding/suppression) can fail the 1-df LRT
-#      against the base model while being important once other covariates are
-#      included. Example: BPMEDS may look null marginally but become
-#      informative once SYSBP is also in the model.
-#    - Rationale for individual testing here: exploratory screening with a
-#      liberal alpha (0.10) and a small candidate set (5 vars); joint LRT at
-#      5 df has lower power against sparse-signal alternatives.
-#    - Sensitivity check to add: also fit the FULL model with all 5 candidates
-#      and report whether any variable flips significance vs. the individual
-#      screen. This is printed below for transparency.
-#
-# 2) Concordance (C) index (prof: "What will the concordance index tell you,
-#    and how does it relate to the goals?")
-#    - C-index = probability that for a random pair with different event
-#      times, the model assigns higher risk to the one who failed first
-#      (survival analogue of AUC). 0.5 = no discrimination, 1.0 = perfect.
-#    - Relates to our goal (10-year stroke risk prediction by risk profile):
-#      it quantifies how well the model RANKS individuals by risk, which is
-#      exactly what is needed to compare profiles. It does NOT assess
-#      calibration (absolute accuracy of predicted probabilities) -- so we
-#      report C alongside predicted 10-yr probabilities for representative
-#      profiles rather than relying on C alone.
-# ----------------------------------------------------------------------------
-
 results_men   <- individual_test(men,   sure_vars, quest_vars, "MEN")
 results_women <- individual_test(women, sure_vars, quest_vars, "WOMEN")
 
@@ -418,10 +381,7 @@ save_table(format_indiv(results_women), "Table5_IndivTest_Women",
            caption = sprintf("Table 5. Individual Variable Testing - Women (* LRT p < %.2f)",
                              ALPHA_SELECT))
 
-# SENSITIVITY: joint full model with all candidate variables (addresses
-# Wynn's concern about variables only informative when adjusted for others).
-# If a variable is null individually but significant here, individual
-# screening would have missed it.
+# SENSITIVITY: joint full model with all candidate variables 
 full_formula <- as.formula(
   paste("Surv(time_years, stroke_10yr) ~",
         paste(c(sure_vars, quest_vars), collapse = " + ")))
@@ -429,24 +389,6 @@ cat("\n--- SENSITIVITY: Joint full model, MEN ---\n")
 print(summary(coxph(full_formula, data = men)))
 cat("\n--- SENSITIVITY: Joint full model, WOMEN ---\n")
 print(summary(coxph(full_formula, data = women)))
-
-# ============================================================================
-# Final Model Selection: AIC-BASED STEPWISE (both directions)
-#
-# Rationale (responds to Wynn feedback on individual-LRT limitations):
-#   - Individual LRT can miss variables only informative WHEN ADJUSTED for
-#     others (classic confounding/suppression).
-#   - Stepwise selection on AIC evaluates each variable in the presence of
-#     all others currently in the model, addressing that blind spot.
-#   - AIC (rather than p-value thresholds) avoids the Type I error inflation
-#     concern raised about using the same data for selection AND inference.
-#   - We run BOTH backward and forward selection and compare:
-#       * Backward starts full -> removes worst AIC contributor
-#       * Forward  starts base -> adds best AIC contributor
-#     Agreement between directions = evidence that selection is robust.
-#   - A priori variables (age, diabetes, SBP) are FORCE-INCLUDED via the
-#     lower scope of step(); they can never be dropped.
-# ============================================================================
 
 # Build shared complete-case dataset so AIC is comparable across steps
 all_vars <- c(sure_vars, quest_vars)
@@ -498,8 +440,7 @@ v_w_fwd  <- vars_selected(sel_women$forward,  "Forward  (WOMEN)")
 cat("  Agreement: ",
     ifelse(setequal(v_w_back, v_w_fwd), "YES", "NO (see tables)"), "\n")
 
-# Primary final model = backward (recommended for this n:p ratio).
-# If forward disagrees, report both in the writeup and discuss.
+# Primary final model = backward
 cox_men_final   <- sel_men$backward
 cox_women_final <- sel_women$backward
 
@@ -583,14 +524,6 @@ p_forest <- ggplot(hr_all, aes(x = HR, y = Variable)) +
 save_fig(p_forest, "Figure3_Forest_Plot", w = 8, h = 5)
 
 # Time-Varying Covariates
-# Wynn feedback: "Do these summary statistics capture within-individual change,
-# and do they account for the fact that the composition of subjects is changing
-# at each timepoint?"  -> We address BOTH issues below:
-#   (A) Restrict to a BALANCED COHORT present in all 3 periods, so period
-#       contrasts are not confounded by who drops out / who enters.
-#   (B) Compute WITHIN-INDIVIDUAL change (paired Period 3 - Period 1) to
-#       describe change at the person level, not just marginal means.
-
 tv_data <- frmgham %>%
   filter(PREVSTRK == 0) %>%
   mutate(sex_label = ifelse(SEX == 1, "Men", "Women"))

@@ -1,0 +1,448 @@
+---
+title: 'Risk Factors and 10-Year Probability of Stroke'
+subtitle: 'Framingham Heart Study Analysis'
+author: |
+ | Analysts: [Your Name]
+ |
+ | Investigators: Elizabeth Wynn
+ |
+ | Report generated: `r format(Sys.Date(), '%m/%d/%Y')`
+output:
+  pdf_document:
+    highlight: espresso
+    number_sections: yes
+    toc: yes
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo       = FALSE,
+  warning    = FALSE,
+  message    = FALSE,
+  fig.width  = 10,
+  fig.height = 6,
+  fig.align  = "center"
+)
+```
+
+```{r libraries, message=FALSE}
+library(survival)
+library(survminer)
+library(gtsummary)
+library(gt)
+library(flextable)
+library(ggplot2)
+library(gridExtra)
+library(grid)
+library(dplyr)
+library(tidyr)
+library(xtable)
+
+dir.create("../Results/Figures", recursive = TRUE, showWarnings = FALSE)
+dir.create("../Results/Tables",  recursive = TRUE, showWarnings = FALSE)
+fig_dir <- "../Results/Figures/"
+tab_dir <- "../Results/Tables/"
+ALPHA_SELECT <- 0.10
+
+# --- DATA PATH: adjust if your .Rmd lives in a different folder ---
+# When knitting, the working directory = folder containing this .Rmd file.
+# Try common locations; edit the first entry to match your setup.
+data_candidates <- c(
+  "../DataRaw/frmgham2.csv",        # .Rmd is in Code/
+  "./frmgham2.csv",                 # .Rmd is alongside the CSV
+  "../RawData/frmgham2.csv",        # alternate naming
+  "../../DataRaw/frmgham2.csv"      # .Rmd is nested deeper
+)
+data_path <- Find(file.exists, data_candidates)
+if (is.null(data_path)) stop(
+  "Cannot find frmgham2.csv. Searched:\n  ",
+  paste(data_candidates, collapse = "\n  "),
+  "\nEdit 'data_candidates' above to add the correct path.",
+  "\nCurrent working directory: ", getwd())
+cat("Using data file:", normalizePath(data_path), "\n")
+```
+
+```{r helpers, include=FALSE}
+save_table <- function(df, filename, caption = "", digits = 3) {
+    tex_path <- paste0(tab_dir, filename, ".tex")
+    xt <- xtable(df, caption = caption, digits = digits)
+    print(xt, file = tex_path, include.rownames = FALSE, booktabs = TRUE,
+          caption.placement = "top", sanitize.text.function = identity)
+    png_path <- paste0(tab_dir, filename, ".png")
+    tt <- ttheme_minimal(
+      core    = list(fg_params = list(fontsize = 9), padding = unit(c(4,4), "mm")),
+      colhead = list(fg_params = list(fontsize = 9, fontface = "bold"),
+                     padding = unit(c(4,4), "mm")))
+    tbl_grob <- tableGrob(df, rows = NULL, theme = tt)
+    w     <- convertWidth( sum(tbl_grob$widths),  "in", valueOnly = TRUE)
+    h_tbl <- convertHeight(sum(tbl_grob$heights), "in", valueOnly = TRUE)
+    h_cap   <- if (nchar(caption) > 0) 0.5 else 0
+    h_total <- max(h_tbl + h_cap + 0.3, 2); w_total <- max(w + 0.8, 8)
+    png(png_path, width = w_total, height = h_total,
+        units = "in", res = 200, bg = "white")
+    grid.newpage()
+    if (nchar(caption) > 0)
+      grid.text(caption, x = unit(0.4, "in"), y = unit(h_total - 0.28, "in"),
+                gp = gpar(fontsize = 11, fontface = "bold"), just = "left",
+                default.units = "in")
+    x_off <- (w_total - w) / 2
+    pushViewport(viewport(x = unit(x_off, "in"), y = unit(0.15, "in"),
+                          width = unit(w, "in"), height = unit(h_tbl, "in"),
+                          just = c("left", "bottom")))
+    grid.draw(tbl_grob); popViewport(); dev.off()
+}
+save_fig <- function(plot_obj, filename, w = 8, h = 5) {
+  ggsave(paste0(fig_dir, filename, ".png"), plot_obj,
+         width = w, height = h, dpi = 200, bg = "white")
+}
+```
+
+```{r data-prep, include=FALSE}
+frmgham <- read.csv(data_path)
+
+TEN_YEARS <- 3652
+baseline <- frmgham %>%
+  filter(PERIOD == 1, PREVSTRK == 0) %>%
+  mutate(
+    time_stroke_10yr = pmin(TIMESTRK, TEN_YEARS),
+    stroke_10yr      = ifelse(STROKE == 1 & TIMESTRK <= TEN_YEARS, 1, 0),
+    time_death_10yr  = pmin(TIMEDTH, TEN_YEARS),
+    death_10yr       = ifelse(DEATH == 1 & TIMEDTH <= TEN_YEARS, 1, 0),
+    death_no_stroke  = ifelse(death_10yr == 1 & stroke_10yr == 0, 1, 0),
+    time_years       = time_stroke_10yr / 365.25,
+    sex_label        = factor(SEX, levels = c(1, 2), labels = c("Men", "Women")),
+    diabetes_label   = factor(DIABETES, levels = c(0, 1),
+                              labels = c("No Diabetes", "Diabetes")),
+    diabetes_f = factor(DIABETES,    levels = c(0,1), labels = c("No", "Yes")),
+    bpmeds_f   = factor(BPMEDS,      levels = c(0,1), labels = c("No", "Yes")),
+    cursmoke_f = factor(CURSMOKE,    levels = c(0,1), labels = c("No", "Yes")),
+    prevchd_f  = factor(PREVCHD,     levels = c(0,1), labels = c("No", "Yes")),
+    stroke_f   = factor(stroke_10yr, levels = c(0,1), labels = c("No", "Yes")),
+    death_f    = factor(death_10yr,  levels = c(0,1), labels = c("No", "Yes")),
+    smoke_label   = factor(CURSMOKE, levels = c(0,1),
+                           labels = c("Non-smoker","Current smoker")),
+    prevchd_label = factor(PREVCHD, levels = c(0,1),
+                           labels = c("No prior CHD","Prevalent CHD")),
+    bpmeds_label  = factor(BPMEDS, levels = c(0,1),
+                           labels = c("No BP meds","On BP meds")),
+    age_cat   = factor(ifelse(AGE >= 55, "Age 55+", "Age under 55"),
+                       levels = c("Age under 55","Age 55+")),
+    sbp_cat   = factor(ifelse(SYSBP >= 140, "SBP 140+", "SBP under 140"),
+                       levels = c("SBP under 140","SBP 140+")))
+
+sure_vars  <- c("AGE", "DIABETES", "SYSBP")
+quest_vars <- c("PREVCHD", "BPMEDS", "CURSMOKE", "TOTCHOL", "BMI")
+all_vars   <- c(sure_vars, quest_vars)
+var_labels <- c(AGE = "Age (years)", DIABETES = "Diabetes",
+                SYSBP = "Systolic BP (mmHg)", CURSMOKE = "Current Smoker",
+                PREVCHD = "Prevalent CHD", BPMEDS = "BP Medications",
+                TOTCHOL = "Total Cholesterol (mg/dL)", BMI = "BMI (kg/m\u00b2)")
+
+men   <- baseline %>% filter(SEX == 1)
+women <- baseline %>% filter(SEX == 2)
+
+tidy_cox <- function(model) {
+  s <- summary(model); vars <- rownames(s$conf.int)
+  data.frame(
+    Variable = ifelse(vars %in% names(var_labels), var_labels[vars], vars),
+    HR = sprintf("%.3f", s$conf.int[,"exp(coef)"]),
+    `95% CI` = sprintf("(%.3f\u2013%.3f)", s$conf.int[,"lower .95"],
+                       s$conf.int[,"upper .95"]),
+    `Wald p` = ifelse(s$coefficients[,"Pr(>|z|)"] < 0.001, "<0.001",
+                      sprintf("%.4f", s$coefficients[,"Pr(>|z|)"])),
+    check.names = FALSE, stringsAsFactors = FALSE)
+}
+```
+
+# Introduction
+
+The data for this analysis come from the Framingham Heart Study, a landmark longitudinal prospective cohort study of cardiovascular disease among a community-based population in Framingham, Massachusetts. Beginning in 1948, the study enrolled 5,209 subjects who have been examined biennially with continuous follow-up for cardiovascular outcomes. The enclosed dataset is a subset containing laboratory, clinic, questionnaire, and adjudicated event data on 4,434 participants collected during three examination periods approximately 6 years apart (roughly 1956--1968). Each participant was followed for up to 24 years for the occurrence of stroke, myocardial infarction, angina pectoris, or death.
+
+The goal of this analysis is to identify important risk factors of stroke and compute the 10-year probability of stroke based on different risk profiles. The analysis is stratified by sex (M/F), uses only baseline (Period 1) covariate values, and restricts follow-up to 10 years. As a secondary descriptive aim, we summarize how risk factors change within individuals across the three examination periods to inform whether a time-varying covariate analysis might be warranted.
+
+*Statistical hypotheses:* $H_0$: After adjusting for age, diabetes, and systolic blood pressure, candidate risk factors (prevalent CHD, BP medications, current smoking, total cholesterol, BMI) are not associated with 10-year stroke risk (HR = 1). $H_A$: At least one candidate risk factor is associated with 10-year stroke risk (HR $\neq$ 1). Hypotheses are tested separately for men and women.
+
+# Methods
+
+## Data Management
+
+The analytic cohort was restricted to baseline (Period 1) participants free of prevalent stroke (PREVSTRK = 0). Time to stroke was censored at 3,652 days (~10 years). Deaths without stroke were tracked as competing events; because standard Cox models treat these as non-informative censoring, cumulative stroke incidence may be slightly overestimated. Missing data were handled by complete-case analysis. Antihypertensive medication use (BPMEDS) had the most missingness at approximately 1--2%; all other variables had less than 1% missing.
+
+## Statistical Analysis
+
+Baseline characteristics were summarized by sex using means (SD) for continuous variables and counts (%) for categorical variables. Kaplan-Meier curves for stroke-free survival were estimated by sex and by each candidate risk factor within sex strata.
+
+Separate Cox proportional hazards models were fitted for men and women using baseline covariate values only. A base model included three a priori established risk factors: age, diabetes status, and systolic blood pressure. Five candidate variables---prevalent CHD, antihypertensive medication use, current smoking, total cholesterol, and BMI---were then evaluated for inclusion via AIC-based stepwise selection.
+
+We used AIC-based stepwise selection in both backward and forward directions. In backward elimination, the full model (all 8 variables) was iteratively simplified by removing the variable whose removal most reduced AIC. In forward selection, the base model was iteratively expanded by adding the variable that most reduced AIC. The three a priori variables were force-included and could not be dropped in either direction. Running both directions and comparing results provided evidence of selection robustness. As a secondary descriptive step, individual 1-degree-of-freedom likelihood ratio tests (LRT) at $\alpha$ = 0.10 were also reported. Individual testing may miss variables only informative when adjusted for other covariates; the stepwise approach addresses this concern by evaluating each variable in the context of all others currently in the model.
+
+The proportional hazards assumption was assessed via Schoenfeld residuals. Model discrimination was assessed by the concordance index (C-index), which quantifies the probability that for a random pair with different event times, the model assigns higher risk to the individual who experienced stroke first. A C-index of 0.5 indicates no discrimination and 1.0 indicates perfect discrimination. Because the C-index does not assess calibration, predicted 10-year probabilities for representative risk profiles were also reported.
+
+To assess whether risk factors changed meaningfully over the three examination periods, summary statistics were computed on a balanced cohort of participants present in all three periods, so that period contrasts are not confounded by changes in sample composition. Within-individual paired changes (Period 3 minus Period 1) were also computed to describe person-level change.
+
+# Results
+
+## Descriptive Statistics
+
+```{r table1, fig.cap="Table 1. Baseline Characteristics by Sex"}
+tab1 <- baseline %>%
+  select(sex_label, AGE, SYSBP, TOTCHOL, BMI,
+         diabetes_f, bpmeds_f, cursmoke_f, prevchd_f, stroke_f, death_f) %>%
+  tbl_summary(
+    by = sex_label,
+    label = list(
+      AGE ~ "Age (years)", SYSBP ~ "Systolic BP (mmHg)",
+      TOTCHOL ~ "Total Cholesterol (mg/dL)", BMI ~ "BMI (kg/m\u00b2)",
+      diabetes_f ~ "Diabetes", bpmeds_f ~ "Antihypertensive Medication",
+      cursmoke_f ~ "Current Smoker", prevchd_f ~ "Prevalent CHD",
+      stroke_f ~ "Stroke within 10 years", death_f ~ "Death within 10 years"),
+    statistic = list(all_continuous() ~ "{mean} ({sd})",
+                     all_categorical() ~ "{n} ({p}%)"),
+    digits = list(all_continuous() ~ 1, all_categorical() ~ c(0, 1)),
+    missing = "ifany", missing_text = "Missing, n (%)",
+    missing_stat = "{N_miss} ({p_miss}%)") %>%
+  add_overall(last = FALSE) %>%
+  modify_caption("**Table 1. Baseline Characteristics by Sex**") %>%
+  modify_spanning_header(c(stat_1, stat_2) ~ "**Sex**") %>%
+  bold_labels()
+tab1
+```
+
+After excluding 32 participants with prevalent stroke, the cohort included 4,402 participants (1,930 men, 2,472 women). Mean age was approximately 50 years in both groups. Men had higher smoking prevalence (60.5% vs. 40.5%) and more prevalent CHD (6.2% vs. 2.7%); women had slightly higher systolic BP (133.7 vs. 131.6 mmHg). Within 10 years, 49 men (2.5%) and 62 women (2.5%) had a stroke, while 208 men (10.8%) and 159 women (6.4%) died without stroke---a substantial competing risk.
+
+## Kaplan-Meier Curves
+
+```{r km-diabetes-sex, fig.cap="Figure 1. Kaplan-Meier Stroke-Free Survival by Diabetes Status, Stratified by Sex", fig.width=10, fig.height=5}
+km_dm_sex <- survfit(Surv(time_years, stroke_10yr) ~ diabetes_label + sex_label,
+                     data = baseline)
+sdf_dm <- surv_summary(km_dm_sex, data = baseline)
+sdf_dm$group <- sdf_dm$diabetes_label
+ggplot(sdf_dm, aes(x = time, y = surv, color = group, fill = group)) +
+  geom_step(linewidth = 0.7) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), alpha = 0.15, color = NA) +
+  facet_wrap(~ sex_label) +
+  coord_cartesian(xlim = c(0,10), ylim = c(0.80,1.0)) +
+  scale_x_continuous(breaks = seq(0,10,2)) +
+  scale_color_manual(values = c("#2ca02c","#d62728")) +
+  scale_fill_manual(values = c("#2ca02c","#d62728")) +
+  labs(x = "Time (years)", y = "Stroke-Free Survival Probability",
+       color = "Diabetes Status", fill = "Diabetes Status",
+       title = "Figure 1. KM Stroke-Free Survival by Diabetes, Stratified by Sex") +
+  theme_minimal() + theme(legend.position = "bottom")
+```
+
+Kaplan-Meier curves showed similar stroke-free survival by sex overall. However, diabetic participants had markedly worse survival in both sexes, with the most pronounced separation in men after year 6 (Figure 1). Additional KM curves (not shown due to figure limits) demonstrated visually lower survival for participants aged 55+, with SBP 140 mmHg or above, and with prevalent CHD, all consistent with expected risk factor directions.
+
+## Cox Proportional Hazards Models
+
+```{r base-models, include=FALSE}
+f_base <- as.formula(paste("Surv(time_years, stroke_10yr) ~",
+                           paste(sure_vars, collapse = " + ")))
+cox_men_base   <- coxph(f_base, data = men)
+cox_women_base <- coxph(f_base, data = women)
+```
+
+In the base model (age, diabetes, SBP), all three variables were significant for men (C = 0.790): age HR = 1.062 per year (95% CI: 1.024--1.102, p = 0.001), diabetes HR = 3.535 (1.560--8.013, p = 0.003), and SBP HR = 1.031 per mmHg (1.020--1.042, p < 0.001). For women (C = 0.805), age and SBP were significant (p < 0.001 each), but diabetes was not (HR = 1.560, 95% CI: 0.563--4.321, p = 0.39), likely due to few diabetic women with stroke events.
+
+### Model Selection
+
+```{r individual-testing, include=FALSE}
+individual_test <- function(data, sure_vars, quest_vars, sex_label) {
+  results <- data.frame(Variable = character(), HR = numeric(),
+    CI_lower = numeric(), CI_upper = numeric(),
+    Wald_p = numeric(), LRT_p = numeric(),
+    Concordance = numeric(), stringsAsFactors = FALSE)
+  for (v in quest_vars) {
+    all_needed <- c(sure_vars, v, "time_years", "stroke_10yr")
+    cc_data <- data[complete.cases(data[, all_needed]), ]
+    f_base_cc <- as.formula(paste("Surv(time_years, stroke_10yr) ~",
+                                  paste(sure_vars, collapse = " + ")))
+    cox_base_cc <- coxph(f_base_cc, data = cc_data)
+    f_test <- as.formula(paste("Surv(time_years, stroke_10yr) ~",
+                               paste(c(sure_vars, v), collapse = " + ")))
+    cox_test <- coxph(f_test, data = cc_data)
+    lr <- anova(cox_base_cc, cox_test, test = "LRT")
+    lr_pval <- lr[["Pr(>|Chi|)"]][2]
+    s <- summary(cox_test); idx <- which(rownames(s$conf.int) == v)
+    results <- rbind(results, data.frame(
+      Variable = v, HR = s$conf.int[idx,"exp(coef)"],
+      CI_lower = s$conf.int[idx,"lower .95"],
+      CI_upper = s$conf.int[idx,"upper .95"],
+      Wald_p = s$coefficients[idx,"Pr(>|z|)"],
+      LRT_p = lr_pval, Concordance = s$concordance["C"],
+      stringsAsFactors = FALSE))
+  }
+  return(results)
+}
+results_men   <- individual_test(men,   sure_vars, quest_vars, "MEN")
+results_women <- individual_test(women, sure_vars, quest_vars, "WOMEN")
+```
+
+```{r stepwise, include=FALSE}
+men_cc   <- men[complete.cases(men[, c(all_vars, "time_years", "stroke_10yr")]), ]
+women_cc <- women[complete.cases(women[, c(all_vars, "time_years", "stroke_10yr")]), ]
+
+f_lower <- as.formula(paste("Surv(time_years, stroke_10yr) ~",
+                            paste(sure_vars, collapse = " + ")))
+f_upper <- as.formula(paste("Surv(time_years, stroke_10yr) ~",
+                            paste(all_vars, collapse = " + ")))
+
+run_stepwise <- function(cc_data, sex_tag) {
+  f_low <- f_lower; environment(f_low) <- environment()
+  f_up  <- f_upper; environment(f_up)  <- environment()
+  full_fit <- coxph(f_up, data = cc_data)
+  back_fit <- step(full_fit, scope = list(lower = f_low, upper = f_up),
+                   direction = "backward", trace = 0)
+  base_fit <- coxph(f_low, data = cc_data)
+  fwd_fit  <- step(base_fit, scope = list(lower = f_low, upper = f_up),
+                   direction = "forward", trace = 0)
+  list(backward = back_fit, forward = fwd_fit, full = full_fit)
+}
+
+sel_men   <- run_stepwise(men_cc,   "MEN")
+sel_women <- run_stepwise(women_cc, "WOMEN")
+v_m_back <- names(coef(sel_men$backward))
+v_m_fwd  <- names(coef(sel_men$forward))
+v_w_back <- names(coef(sel_women$backward))
+v_w_fwd  <- names(coef(sel_women$forward))
+
+cox_men_final   <- sel_men$backward
+cox_women_final <- sel_women$backward
+```
+
+```{r selection-table, fig.cap="Table 2. Variable Selection Comparison"}
+sel_compare <- data.frame(
+  Variable = all_vars,
+  `Indiv LRT Men`   = ifelse(all_vars %in% results_men$Variable[results_men$LRT_p < ALPHA_SELECT], "X", ""),
+  `Backward Men`    = ifelse(all_vars %in% v_m_back, "X", ""),
+  `Forward Men`     = ifelse(all_vars %in% v_m_fwd,  "X", ""),
+  `Indiv LRT Women` = ifelse(all_vars %in% results_women$Variable[results_women$LRT_p < ALPHA_SELECT], "X", ""),
+  `Backward Women`  = ifelse(all_vars %in% v_w_back, "X", ""),
+  `Forward Women`   = ifelse(all_vars %in% v_w_fwd,  "X", ""),
+  check.names = FALSE, stringsAsFactors = FALSE)
+sel_compare$Variable <- ifelse(sel_compare$Variable %in% sure_vars,
+                               paste0(sel_compare$Variable, " (forced)"), sel_compare$Variable)
+knitr::kable(sel_compare,
+  caption = "Table 2. Variable Selection Comparison: Individual LRT vs AIC Backward vs AIC Forward. A priori variables are force-included.")
+```
+
+All three selection methods converged on the same variable sets (Table 2). For men, backward elimination, forward selection, and individual LRT all retained current smoking as the only additional variable beyond the three a priori factors. For women, no candidate variable improved AIC; the final model consists of the base variables only. This agreement across methods provides strong evidence that the selection is robust and, in this dataset, no variable was missed by individual testing that would have been captured by joint assessment.
+
+### Final Models
+
+```{r final-models}
+knitr::kable(tidy_cox(cox_men_final),
+  caption = sprintf("Table 3. Final Cox Model - Men (C = %.3f)",
+                    summary(cox_men_final)$concordance["C"]))
+knitr::kable(tidy_cox(cox_women_final),
+  caption = sprintf("Table 4. Final Cox Model - Women (C = %.3f)",
+                    summary(cox_women_final)$concordance["C"]))
+```
+
+The final model for men (Table 3, C = 0.797) included age (HR = 1.066, 95% CI: 1.027--1.107, p < 0.001), diabetes (HR = 4.807, 2.099--11.005, p < 0.001), systolic BP (HR = 1.034, 1.022--1.046, p < 0.001), and current smoking (HR = 1.924, 1.036--3.573, p = 0.038). Notably, the diabetes HR increased from 3.535 in the base model to 4.807 in the final model after adjusting for smoking, suggesting that confounding by smoking had partially attenuated the diabetes effect in the base model.
+
+The final model for women (Table 4, C = 0.796) included age (HR = 1.073, 1.033--1.116, p < 0.001), diabetes (HR = 1.767, 0.636--4.904, p = 0.27), and systolic BP (HR = 1.026, 1.018--1.034, p < 0.001). Diabetes was retained as a forced a priori variable despite non-significance, reflecting the clinical rationale for its inclusion and the limited statistical power from few diabetic women experiencing stroke.
+
+The proportional hazards assumption was assessed via Schoenfeld residuals. No significant violations were found for either model. For men, all individual terms had p > 0.09 (diabetes was borderline at p = 0.097, warranting monitoring in extended follow-up). For women, all terms had p > 0.70, indicating no evidence of non-proportional hazards.
+
+```{r forest-plot, fig.cap="Figure 2. Forest Plot of Final Cox Models by Sex", fig.width=8, fig.height=5}
+extract_hr <- function(model, sex_label) {
+  s <- summary(model); vars <- rownames(s$conf.int)
+  data.frame(
+    Variable = ifelse(vars %in% names(var_labels), var_labels[vars], vars),
+    HR = s$conf.int[,"exp(coef)"], Lower = s$conf.int[,"lower .95"],
+    Upper = s$conf.int[,"upper .95"], Sex = sex_label,
+    stringsAsFactors = FALSE)
+}
+hr_all <- rbind(extract_hr(cox_men_final, "Men"),
+                extract_hr(cox_women_final, "Women"))
+ggplot(hr_all, aes(x = HR, y = Variable)) +
+  geom_vline(xintercept = 1, linetype = "dashed", color = "red", alpha = 0.7) +
+  geom_pointrange(aes(xmin = Lower, xmax = Upper, color = Sex),
+                  position = position_dodge(width = 0.5), size = 0.6) +
+  scale_x_log10() +
+  scale_color_manual(values = c("Men" = "#2171b5", "Women" = "#cb181d")) +
+  labs(x = "Hazard Ratio (95% CI, log scale)", y = NULL,
+       title = "Figure 2. Forest Plot: Final Models by Sex", color = "Sex") +
+  theme_minimal(base_size = 12) + theme(legend.position = "bottom")
+```
+
+The forest plot (Figure 2) highlights two key sex differences: diabetes was the strongest predictor in men (HR = 4.807) but was not significant in women, and current smoking was an independent risk factor for men only (HR = 1.924). Age and systolic BP showed consistent, similar-magnitude associations across both sexes.
+
+### Predicted 10-Year Stroke Probabilities
+
+```{r predicted-probs, include=FALSE}
+model_vars <- names(cox_men_final$coefficients)
+avg_vals  <- list(AGE = 50, DIABETES = 0, SYSBP = 132, CURSMOKE = 0,
+                  PREVCHD = 0, BPMEDS = 0, TOTCHOL = 234, BMI = 26)
+high_vals <- list(AGE = 70, DIABETES = 1, SYSBP = 160, CURSMOKE = 1,
+                  PREVCHD = 1, BPMEDS = 1, TOTCHOL = 260, BMI = 30)
+surv_avg  <- survfit(cox_men_final, newdata = as.data.frame(avg_vals[model_vars]))
+surv_high <- survfit(cox_men_final, newdata = as.data.frame(high_vals[model_vars]))
+get_10yr <- function(sf) { idx <- max(which(sf$time <= 10)); 1 - sf$surv[idx] }
+risk_avg  <- get_10yr(surv_avg)
+risk_high <- get_10yr(surv_high)
+```
+
+To illustrate the model's clinical utility, predicted 10-year stroke probabilities were computed for representative male profiles. An average-risk man (age 50, non-diabetic, SBP 132 mmHg, non-smoker) had a predicted 10-year stroke probability of `r sprintf("%.1f%%", 100*risk_avg)`. A high-risk man (age 70, diabetic, SBP 160 mmHg, current smoker) had a predicted probability of `r sprintf("%.1f%%", 100*risk_high)`.
+
+## Time-Varying Covariate Analysis
+
+```{r time-varying}
+tv_data <- frmgham %>%
+  filter(PREVSTRK == 0) %>%
+  mutate(sex_label = ifelse(SEX == 1, "Men", "Women"))
+balanced_ids <- tv_data %>%
+  group_by(RANDID) %>%
+  summarise(np = n_distinct(PERIOD), .groups = "drop") %>%
+  filter(np == 3) %>% pull(RANDID)
+tv_bal <- tv_data %>% filter(RANDID %in% balanced_ids)
+
+wide <- tv_bal %>%
+  select(RANDID, sex_label, PERIOD, SYSBP, TOTCHOL, BMI, DIABETES, CURSMOKE, BPMEDS) %>%
+  pivot_wider(names_from = PERIOD,
+              values_from = c(SYSBP, TOTCHOL, BMI, DIABETES, CURSMOKE, BPMEDS),
+              names_sep = "_P")
+within_change <- wide %>%
+  mutate(dSBP = SYSBP_P3 - SYSBP_P1, dChol = TOTCHOL_P3 - TOTCHOL_P1,
+         dBMI  = BMI_P3 - BMI_P1,
+         incident_DM    = ifelse(DIABETES_P1 == 0 & DIABETES_P3 == 1, 1, 0),
+         quit_smoking   = ifelse(CURSMOKE_P1 == 1 & CURSMOKE_P3 == 0, 1, 0),
+         started_BPmeds = ifelse(BPMEDS_P1 == 0 & BPMEDS_P3 == 1, 1, 0)) %>%
+  group_by(Sex = sex_label) %>%
+  summarise(N = n(),
+    `Delta SBP mean (SD)`   = sprintf("%.1f (%.1f)", mean(dSBP, na.rm=TRUE), sd(dSBP, na.rm=TRUE)),
+    `Delta Chol mean (SD)`  = sprintf("%.1f (%.1f)", mean(dChol, na.rm=TRUE), sd(dChol, na.rm=TRUE)),
+    `Delta BMI mean (SD)`   = sprintf("%.2f (%.2f)", mean(dBMI, na.rm=TRUE), sd(dBMI, na.rm=TRUE)),
+    `Incident diabetes (%)` = sprintf("%.1f", 100*mean(incident_DM, na.rm=TRUE)),
+    `Quit smoking (%)`      = sprintf("%.1f", 100*mean(quit_smoking, na.rm=TRUE)),
+    `Started BP meds (%)`   = sprintf("%.1f", 100*mean(started_BPmeds, na.rm=TRUE)),
+    .groups = "drop")
+knitr::kable(within_change,
+  caption = "Table 5. Within-Individual Change in Risk Factors, Period 1 to Period 3 (Balanced Cohort)")
+```
+
+In the balanced cohort of participants present in all three examination periods (1,334 men, 1,805 women), substantial within-individual changes were observed (Table 5). Mean systolic BP rose approximately 10 mmHg in both sexes. Incident diabetes developed in 6.6% of men and 5.6% of women. Among baseline smokers, 21.7% of men and 10.5% of women had quit by Period 3. BP medication use increased substantially, with 9.9% of men and 14.7% of women starting antihypertensive therapy. These changes indicate that baseline values become increasingly misaligned with true risk factor exposure over the 10-year follow-up period.
+
+# Discussion
+
+This analysis identified age, diabetes, and systolic blood pressure as the primary determinants of 10-year stroke risk in both sexes, with current smoking contributing additional independent risk in men. The concordance indices (C ~ 0.80 for both models) indicate reasonable discriminative ability for ranking individuals by predicted stroke risk.
+
+Several aspects of these results warrant discussion. First, AIC-based stepwise selection was used in both forward and backward directions rather than individual likelihood ratio tests alone. Individual testing can miss variables whose association with the outcome only becomes apparent when adjusted for other covariates. In this dataset, all three methods converged on the same variable sets, indicating that no variable was missed by individual testing. Nevertheless, the stepwise approach remains the more defensible primary method, and the convergence itself is a useful robustness finding.
+
+Second, the concordance index measures how well the model ranks individuals by risk but does not assess calibration---the accuracy of absolute predicted probabilities. Our finding that predicted 10-year stroke probability ranges from approximately `r sprintf("%.0f%%", 100*risk_avg)` for average-risk men to `r sprintf("%.0f%%", 100*risk_high)` for high-risk men provides practical context for interpreting these predictions alongside the C-index.
+
+Third, substantial within-individual changes in risk factors were observed across the three examination periods. In particular, systolic BP increased by approximately 10 mmHg, diabetes prevalence roughly quadrupled, and BP medication use increased markedly. These changes suggest that a time-varying covariate Cox model might yield different results by capturing real-time risk factor exposure rather than relying on values measured years before stroke events. In a time-varying analysis, the smoking effect might also differ: if many smokers quit during follow-up (21.7% of men), a baseline-only model could underestimate the hazard ratio for sustained smoking exposure while also misclassifying quitters as continuously exposed.
+
+Several limitations should be noted. Standard Cox models treat deaths without stroke as non-informative censoring; given that 10.8% of men and 6.4% of women died without stroke within 10 years, and risk factors for death and stroke overlap, cumulative stroke incidence may be slightly overestimated. Complete-case analysis was used, though missingness was minimal (under 2%). Finally, reported p-values from the final models should be interpreted with some caution, as model selection and inference were performed on the same data, though the use of AIC rather than p-value thresholds partially mitigates this concern.
+
+# Reproducible Research Information
+
+- **Data location:** `DataRaw/frmgham2.csv`
+- **Statistical code:** This `.Rmd` file and supporting R scripts are available at [GitHub repository link].
+- **Software:** R version `r R.version.string`; key packages: `survival`, `survminer`, `gtsummary`, `ggplot2`.
+
+```{r session-info, echo=TRUE}
+sessionInfo()
+```
