@@ -1,0 +1,75 @@
+---
+title: "Interim Data Analysis Plan"
+subtitle: "Investigation of Variable Selection Algorithms"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    number_sections: false
+  word_document:
+    reference_docx: NULL
+mainfont: Times New Roman
+fontsize: 11pt
+linestretch: 2
+geometry: margin=1in
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+library(knitr)
+```
+
+## Introduction
+
+The goal of this project is to investigate and compare the performance of five automated variable selection approaches --- backward elimination by p-value, AIC, BIC, LASSO, and elastic net --- in linear regression through a simulation study. Each approach represents a different strategy for choosing a parsimonious subset of predictors from a larger candidate pool, and the choice of method has important consequences for both the accuracy of variable selection and the validity of subsequent inference. Simulation allows us to evaluate each method under controlled conditions where the true data-generating model is known, making it possible to directly measure selection errors that would be unobservable in a real data analysis.
+
+The statistical hypotheses we will evaluate in the final report are: (1) Do the seven methods differ in their true positive rate (TPR) --- the proportion of true signal variables X1--X5 correctly included in the final model? (2) Do the methods differ in their false positive rate (FPR) --- the proportion of null variables X6--X20 incorrectly included? (3) Do penalised methods (LASSO, elastic net) introduce greater coefficient shrinkage bias compared to stepwise methods? (4) Does naive post-selection OLS refitting produce well-calibrated 95% confidence intervals, or does empirical coverage fall below the nominal 0.95 level? These four questions together characterise the accuracy-parsimony tradeoff and the inferential consequences of each selection strategy under varying sample size and predictor correlation.
+
+## Preliminary Methods
+
+Data are fully simulated; there is no real-world dataset requiring cleaning. Each dataset is generated in R (seed = 2026) from the linear model $Y_i = \beta_0 + \beta_1 X_{i1} + \cdots + \beta_{20} X_{i,20} + \varepsilon_i$, where $\varepsilon_i \sim N(0, 1)$. The 20 predictors are drawn from a multivariate normal distribution with an exchangeable covariance matrix (all off-diagonal entries equal to $\rho$), implemented using `MASS::mvrnorm()`. The five signal predictors X1--X5 have true coefficients $\beta$ = 0.167, 0.333, 0.500, 0.667, and 0.833 (i.e., 0.5/3, 1/3, 1.5/3, 2.0/3, 2.5/3 as specified in the project description); the remaining 15 predictors have $\beta = 0$.
+
+The simulation uses a 2 $\times$ 3 factorial design: two sample sizes (N = 250 and N = 500) crossed with three predictor correlation levels ($\rho$ = 0, 0.35, 0.70; class decision), producing six conditions with B = 1,000 replications each. All seven methods are fit to every dataset: backward elimination (p-value threshold = 0.10), AIC backward stepwise, BIC backward stepwise, LASSO with $\lambda$.min and $\lambda$.1se, and elastic net with $\lambda$.min and $\lambda$.1se ($\alpha$ = 0.50; class decision). LASSO and elastic net use 10-fold cross-validation via `glmnet`. After each selection, the final model is refit by OLS to obtain coefficient estimates and 95% confidence intervals. For each replication and method we record: TPR, FPR, mean coefficient bias ($\hat{\beta} - \beta$) for X1--X5, and empirical 95% CI coverage. Metrics are averaged across replications to produce condition-level summaries.
+
+## Preliminary Analysis
+
+The simulation has been coded and all six conditions have been run. Table 1 summarises the simulation parameters as implemented in R. No outliers or data quality issues arise by design since all data are generated from a fully specified model. No variable transformations are needed; LASSO and elastic net standardise predictors internally. All 6,000 simulated datasets were complete with no missing values.
+
+```{r table1}
+param_table <- data.frame(
+  Parameter = c(
+    "Replications (B)",
+    "Total predictors (p)",
+    "Signal predictors (X1-X5)",
+    "Null predictors (X6-X20)",
+    "Error SD",
+    "Sample sizes (N)",
+    "Correlation structure",
+    "Correlation values (rho)",
+    "Backward elimination threshold",
+    "LASSO / Elastic net lambda choices",
+    "Elastic net mixing parameter (alpha)"
+  ),
+  Setting = c(
+    "1,000 per condition",
+    "20",
+    "beta = 0.167, 0.333, 0.500, 0.667, 0.833",
+    "beta = 0",
+    "1.0",
+    "250 and 500",
+    "Exchangeable (compound symmetry)",
+    "0, 0.35, 0.70",
+    "p-value < 0.10",
+    "lambda.min and lambda.1se via 10-fold CV",
+    "0.50"
+  ),
+  stringsAsFactors = FALSE
+)
+
+knitr::kable(
+  param_table,
+  caption = "Table 1. Simulation parameter settings.",
+  align   = c("l", "l"),
+  col.names = c("Parameter", "Setting"),
+  booktabs  = TRUE
+)
+```

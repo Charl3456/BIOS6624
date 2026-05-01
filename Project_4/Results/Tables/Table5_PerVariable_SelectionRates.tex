@@ -1,0 +1,24 @@
+\begin{table}[ht]
+\centering
+\caption{Table 5. Per-Variable Selection Rate for N=250, rho=0 and rho=0.70} 
+\begin{tabular}{lllrrrrr}
+  \toprule
+N & rho & Method & X1 (b=0.167) & X2 (b=0.333) & X3 (b=0.5) & X4 (b=0.667) & X5 (b=0.833) \\ 
+  \midrule
+250 & 0 & Backward (p-val) & 0.84 & 1.00 & 1.00 & 1.00 & 1.00 \\ 
+  250 & 0 & AIC & 0.90 & 1.00 & 1.00 & 1.00 & 1.00 \\ 
+  250 & 0 & BIC & 0.61 & 0.99 & 1.00 & 1.00 & 1.00 \\ 
+  250 & 0 & LASSO (lambda.min) & 0.94 & 1.00 & 1.00 & 1.00 & 1.00 \\ 
+  250 & 0 & LASSO (lambda.1se) & 0.60 & 1.00 & 1.00 & 1.00 & 1.00 \\ 
+  250 & 0 & Elastic Net (lambda.min) & 0.97 & 1.00 & 1.00 & 1.00 & 1.00 \\ 
+  250 & 0 & Elastic Net (lambda.1se) & 0.72 & 1.00 & 1.00 & 1.00 & 1.00 \\ 
+  250 & 0.7 & Backward (p-val) & 0.44 & 0.90 & 1.00 & 1.00 & 1.00 \\ 
+  250 & 0.7 & AIC & 0.54 & 0.93 & 1.00 & 1.00 & 1.00 \\ 
+  250 & 0.7 & BIC & 0.24 & 0.81 & 0.99 & 1.00 & 1.00 \\ 
+  250 & 0.7 & LASSO (lambda.min) & 0.83 & 0.98 & 1.00 & 1.00 & 1.00 \\ 
+  250 & 0.7 & LASSO (lambda.1se) & 0.71 & 0.97 & 1.00 & 1.00 & 1.00 \\ 
+  250 & 0.7 & Elastic Net (lambda.min) & 0.86 & 0.99 & 1.00 & 1.00 & 1.00 \\ 
+  250 & 0.7 & Elastic Net (lambda.1se) & 0.90 & 1.00 & 1.00 & 1.00 & 1.00 \\ 
+   \bottomrule
+\end{tabular}
+\end{table}

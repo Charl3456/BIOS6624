@@ -1,0 +1,17 @@
+\begin{table}[ht]
+\centering
+\caption{Table 4. Confusion Matrix Rates: N=250, rho=0.35 (TP/FN over X1-X5; FP/TN over X6-X20)} 
+\begin{tabular}{lllll}
+  \toprule
+Method & TP Rate & FN Rate & FP Rate & TN Rate \\ 
+  \midrule
+Backward (p-val) & 0.942 & 0.058 & 0.110 & 0.890 \\ 
+  AIC & 0.955 & 0.045 & 0.174 & 0.826 \\ 
+  BIC & 0.890 & 0.110 & 0.025 & 0.975 \\ 
+  LASSO (lambda.min) & 0.990 & 0.010 & 0.358 & 0.642 \\ 
+  LASSO (lambda.1se) & 0.961 & 0.039 & 0.116 & 0.884 \\ 
+  Elastic Net (lambda.min) & 0.993 & 0.007 & 0.423 & 0.577 \\ 
+  Elastic Net (lambda.1se) & 0.986 & 0.014 & 0.246 & 0.754 \\ 
+   \bottomrule
+\end{tabular}
+\end{table}
