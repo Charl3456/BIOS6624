@@ -18,9 +18,15 @@ header-includes:
   - \titleformat{\subsection}{\normalsize\bfseries}{\thesubsection}{1em}{}
   - \titlespacing*{\section}{0pt}{12pt}{6pt}
   - \titlespacing*{\subsection}{0pt}{10pt}{4pt}
+  - \usepackage{caption}
+  - \usepackage{longtable}
+  - \usepackage{booktabs}
+  - \captionsetup[figure]{labelformat=empty,labelsep=none,font=small}
 ---
 
 ```{r setup, include=FALSE}
+if (!requireNamespace('kableExtra', quietly=TRUE)) install.packages('kableExtra')
+library(kableExtra)
 knitr::opts_chunk$set(
   echo      = FALSE,
   message   = FALSE,
@@ -30,7 +36,7 @@ knitr::opts_chunk$set(
 )
 ```
 
-\noindent Name: Yunji \hfill Date: `r format(Sys.Date(), '%B %d, %Y')`
+\noindent Name: Yunjing Hong \hfill Date: `r format(Sys.Date(), '%B %d, %Y')`
 
 \vspace{6pt}
 
@@ -42,7 +48,7 @@ knitr::opts_chunk$set(
 
 # Introduction/Background
 
-This project investigates the performance of seven variable selection methods for linear regression through a Monte Carlo simulation study. The methods under comparison span classical stepwise approaches -- backward elimination and stepwise selection by information criteria -- and modern penalized regression methods, namely the LASSO (Tibshirani, 1996) and Elastic Net (Zou and Hastie, 2005). While penalized methods were originally developed for high-dimensional settings, they are increasingly applied in moderate sample size problems where the number of predictors is manageable but selection uncertainty remains. The goal of this study is to determine what benefit, if any, penalized methods offer over standard selection procedures in such settings, specifically with respect to sensitivity, specificity, coefficient estimation, and confidence interval validity. Performance is evaluated across combinations of sample size and predictor correlation to characterize conditions under which each method is most appropriate.
+This project investigates the performance of seven variable selection methods for linear regression through a Monte Carlo simulation study. The methods under comparison span classical stepwise approaches (backward elimination and stepwise selection by information criteria) and modern penalized regression methods, namely the LASSO (Tibshirani, 1996) and Elastic Net (Zou and Hastie, 2005). While penalized methods were originally developed for high-dimensional settings, they are increasingly applied in moderate sample size problems where the number of predictors is manageable but selection uncertainty remains. The goal of this study is to evaluate the sensitivity, specificity, coefficient estimation accuracy, and confidence interval validity of each method, and to characterize conditions under which each approach is most appropriate.
 
 # The Model Notation
 
@@ -58,60 +64,120 @@ The first five predictors ($X_1$--$X_5$) were true signals with coefficients $\b
 
 # Methods
 
-Seven variable selection methods were compared, all applied to the same full 20-predictor OLS model as the starting point. **Backward (p-val)** eliminates predictors one at a time, removing the predictor with the largest p-value at each step if $p \geq 0.10$ (a class decision), repeating until all remaining predictors satisfy $p < 0.10$. **AIC** performs backward stepwise selection minimizing the Akaike Information Criterion (Akaike, 1974). **BIC** performs backward stepwise selection minimizing the Bayesian Information Criterion (Schwarz, 1978), applying a heavier complexity penalty of $k = \log(N)$ versus $k = 2$ for AIC. **LASSO** (Tibshirani, 1996) minimizes the $L_1$-penalized loss; the tuning parameter $\lambda$ was selected by 10-fold cross-validation (class decision) at either the minimizing value ($\lambda$`.min`) or the one-standard-error value ($\lambda$`.1se`), yielding a sparser model. **Elastic Net** (Zou and Hastie, 2005) combines $L_1$ and $L_2$ penalties with mixing parameter $\alpha = 0.5$ (class decision), with $\lambda$ chosen by the same cross-validation procedure.
+Seven variable selection methods were compared, all applied to the full 20-predictor ordinary least squares (OLS) model. Backward elimination (p-val) removes the predictor with the largest p-value at each step if $p \geq 0.10$ (a class decision), continuing until all remaining predictors satisfy $p < 0.10$. Stepwise AIC performs backward selection minimizing the Akaike Information Criterion with penalty $k = 2$ (Akaike, 1974); stepwise BIC applies the same procedure with $k = \log(N)$ (Schwarz, 1978), imposing a heavier complexity penalty. The LASSO (Tibshirani, 1996) minimizes the $L_1$-penalized loss with tuning parameter $\lambda$ selected by 10-fold cross-validation (class decision) at either the minimizing value ($\lambda$`.min`) or the one-standard-error value ($\lambda$`.1se`). The Elastic Net (Zou and Hastie, 2005) combines $L_1$ and $L_2$ penalties with mixing parameter $\alpha = 0.5$ (class decision) and $\lambda$ selected by the same procedure.
 
-For penalized methods, the penalized glmnet coefficients were used for bias calculation to reflect actual shrinkage behavior; 95% confidence intervals were obtained by post-selection OLS refit on the selected variable subset.
+For penalized methods, the penalized coefficient estimates from the fitted glmnet model were used for bias calculation, since these reflect actual shrinkage behavior; 95% confidence intervals were obtained by post-selection OLS refit on the selected variable subset.
 
-Performance was assessed on four metrics: (1) **TPR (1 $-$ Type II error rate)** -- proportion of signal variables $X_1$--$X_5$ selected; (2) **FPR (Type I error rate)** -- proportion of null variables $X_6$--$X_{20}$ selected; (3) **Mean Coefficient Bias** -- mean of $(\hat{\beta}_j - \beta_j)$, computed unconditionally: non-selected variables receive a coefficient estimate of zero, capturing the full cost of missed signals; and (4) **95% CI Coverage** -- proportion of replications where the OLS refit CI contained the true $\beta_j$, computed conditional on selection since CIs only exist for variables in the final model. Per-variable selection rates for each of $X_1$--$X_5$ were also recorded.
+Performance was evaluated on four metrics: (1) true positive rate (TPR; $1 -$ Type II error rate), the proportion of signal variables $X_1$--$X_5$ selected; (2) false positive rate (FPR; Type I error rate), the proportion of null variables $X_6$--$X_{20}$ selected; (3) mean coefficient bias, the average of $(\hat{\beta}_j - \beta_j)$ computed unconditionally with non-selected variables assigned a coefficient of zero; and (4) empirical 95% confidence interval coverage, the proportion of replications in which the post-selection OLS refit interval contained the true $\beta_j$, computed conditional on selection. Per-variable selection rates for each of $X_1$--$X_5$ were also recorded.
 
 # Simulation
 
-All analyses were conducted in R (version `r paste0(R.Version()$major, ".", R.Version()$minor)`; session details in `Results/sessionInfo.txt`). Predictor matrices were generated using `MASS::mvrnorm()` (Venables and Ripley, 2002); the assignment listed `hdrm::gen_data()` as an alternative which produces equivalent draws. The response was generated as $Y = X\beta + \varepsilon$ with $\varepsilon \sim N(0,1)$ drawn via `rnorm()`. Post-selection OLS refits and confidence intervals were computed using `lm()` and `confint()` from base R. Stepwise methods used `step()` from base R with `direction = "backward"` (deviating from the default `"both"`) with `k = 2` for AIC and `k = log(N)` for BIC. LASSO and Elastic Net used `cv.glmnet()` from the `glmnet` package (Friedman et al., 2010) with `nfolds = 10`, `standardize = TRUE` (package default, explicitly confirmed), `alpha = 1` for LASSO and `alpha = 0.5` for Elastic Net. A single `cv.glmnet()` call was made per penalized method per replication; both $\lambda$`.min` and $\lambda$`.1se` were extracted from the same cross-validation object to ensure identical fold assignments across the two $\lambda$ choices.
+All analyses were conducted in R (version `r paste0(R.Version()$major, ".", R.Version()$minor)`; session details in `Results/sessionInfo.txt`). Predictor matrices were generated using `MASS::mvrnorm()` (Venables and Ripley, 2002); the assignment listed `hdrm::gen_data()` as an option; here `MASS::mvrnorm()` was used directly to implement the same linear-Gaussian data-generating structure with exchangeable covariance. The response was generated as $Y = X\beta + \varepsilon$ with $\varepsilon \sim N(0,1)$ via `rnorm()`. Post-selection OLS refits and confidence intervals were computed using `lm()` and `confint()` from base R. Stepwise methods used `step()` from base R with `direction = "backward"` (deviating from the package default of `"both"`), with `k = 2` for AIC and `k = log(N)` for BIC. LASSO and Elastic Net used `cv.glmnet()` from the `glmnet` package (Friedman et al., 2010) with `nfolds = 10`, `standardize = TRUE` (package default, explicitly confirmed), `alpha = 1` for LASSO, and `alpha = 0.5` for Elastic Net. A single `cv.glmnet()` call per method per replication ensured identical fold assignments for both $\lambda$`.min` and $\lambda$`.1se`.
 
-$B = 1{,}000$ Monte Carlo replications were run per condition. This number was chosen at our discretion: the Monte Carlo standard error for a proportion is $\sqrt{p(1-p)/B} \leq \sqrt{0.25/1000} \approx 0.016$, providing $\pm$2 percentage-point precision on each TPR and FPR cell. Six conditions crossed two sample sizes ($N \in \{250, 500\}$) with three correlation levels ($\rho \in \{0, 0.35, 0.70\}$, exchangeable structure; both class decisions). The random seed was fixed with `set.seed(2026)` as the first executable line to ensure exact reproducibility. Simulation parameters are summarized in Table 1.
-
-\newpage
+$B = 1{,}000$ Monte Carlo replications were run per condition. This number was chosen at the investigators' discretion: the Monte Carlo standard error for a proportion is at most $\sqrt{0.25/1000} \approx 0.016$, providing approximately $\pm 2$ percentage-point precision on each TPR and FPR cell. Six conditions crossed two sample sizes ($N \in \{250, 500\}$) with three correlation levels ($\rho \in \{0, 0.35, 0.70\}$; exchangeable structure; both class decisions). The random seed was fixed with `set.seed(2026)` as the first executable line to ensure exact reproducibility. Simulation parameters are summarized in Table 1.
 
 # Results and Discussion
 
-Across all conditions, the seven methods separated into distinct profiles along the TPR-FPR trade-off (Figure 5). BIC consistently achieved the lowest FPR (0.01--0.03) but also the lowest TPR, most notably at $N = 250$, $\rho = 0.70$ (TPR = 0.81). AIC favored larger models with FPR near 0.17 regardless of condition. Backward (p-val) maintained FPR close to its nominal 0.10 threshold while achieving high TPR across conditions. LASSO ($\lambda$`.min`) and Elastic Net ($\lambda$`.min`) achieved the highest TPR but with severely inflated FPR (0.35--0.50), making them unsuitable when false positive control matters. The $\lambda$`.1se` variants substantially reduced FPR while retaining high TPR, placing them closest to the ideal upper-left corner of Figure 5. At $N = 500$, performance gaps between methods narrowed considerably, with Backward, AIC, LASSO ($\lambda$`.1se`), and Elastic Net ($\lambda$`.1se`) all achieving TPR above 0.95 even at $\rho = 0.70$.
+Across all conditions, the seven methods separated into distinct profiles along the TPR-FPR trade-off (Figure 2). BIC consistently achieved the lowest FPR (0.01--0.03), well below the nominal 0.10 level, reflecting its heavy complexity penalty; however, this conservatism resulted in the lowest TPR among all methods, most notably at $N = 250$, $\rho = 0.70$ (TPR = 0.81). AIC favored larger models, with FPR near 0.17 regardless of condition. Backward (p-val) maintained FPR close to its nominal 0.10 threshold while achieving high TPR across conditions, consistent with the p-value criterion calibrating the variable-level Type I error rate. LASSO ($\lambda$`.min`) and Elastic Net ($\lambda$`.min`) achieved the highest TPR but with severely inflated FPR (0.35--0.50), selecting many null variables in nearly every replication; this behavior is consistent with $\lambda$`.min` prioritizing prediction over sparsity. The $\lambda$`.1se` variants substantially reduced FPR while retaining high TPR. At $N = 500$, performance gaps narrowed considerably, with Backward, AIC, LASSO ($\lambda$`.1se`), and Elastic Net ($\lambda$`.1se`) all achieving TPR above 0.95 even at $\rho = 0.70$.
 
-The impact of predictor correlation is shown in Figures 1 and 8. As $\rho$ increased from 0 to 0.70, TPR declined for all methods, with BIC degrading most steeply (TPR = 0.92 at $\rho = 0$ to 0.81 at $\rho = 0.70$, $N = 250$) and Elastic Net methods being most robust due to the $L_2$ component retaining correlated predictors together. Per-variable analysis showed that weak signals drove most TPR differences: at $N = 250$, $\rho = 0.35$, BIC retained $X_1$ ($\beta = 0.167$) in only 47% of replications, compared to 70% for Backward, 79% for AIC, 96% for LASSO ($\lambda$`.min`), and 97% for Elastic Net ($\lambda$`.min`), while $X_3$--$X_5$ ($\beta \geq 0.50$) were reliably recovered by all methods in virtually every replication regardless of $N$ or $\rho$.
+The impact of predictor correlation is shown in Figures 1 and 4. TPR declined with increasing $\rho$ for all methods; BIC degraded most steeply (TPR = 0.92 at $\rho = 0$ to 0.81 at $\rho = 0.70$, $N = 250$), while Elastic Net methods were most robust owing to the $L_2$ component retaining correlated predictors jointly. Differences in TPR were driven primarily by weak signals: at $N = 250$, $\rho = 0.35$, BIC retained $X_1$ ($\beta = 0.167$) in only 47% of replications versus 96% for LASSO ($\lambda$`.min`) and 97% for Elastic Net ($\lambda$`.min`), while $X_3$--$X_5$ ($\beta \geq 0.50$) were recovered by virtually all methods under all conditions.
 
-Coefficient bias and CI coverage (Figure 3, Table 3) revealed a further trade-off. Backward, AIC, and BIC produced near-zero bias; LASSO and Elastic Net exhibited systematic negative bias of $-0.04$ to $-0.15$ reflecting penalized-coefficient shrinkage. CI coverage degraded with increasing $\rho$; BIC showed the largest drop (to 0.925 at $N = 250$, $\rho = 0.70$) consistent with its average of only 4.05 of 5 signal variables selected, while LASSO and Elastic Net with $\lambda$`.1se` maintained coverage near 0.93--0.94 across conditions -- slightly below nominal but more stable than BIC under high correlation.
+Coefficient bias and confidence interval coverage (Figure 3, Table 3) revealed a further trade-off. Backward, AIC, and BIC produced near-zero average bias (within $\pm 0.01$) in these simulations, reflecting that the reported coefficients are unpenalized OLS estimates among selected variables, although this does not remove post-selection inferential concerns. LASSO and Elastic Net exhibited systematic negative bias of $-0.04$ to $-0.15$, reflecting penalized-coefficient shrinkage, a property inherent to regularization that persists with increasing $N$. Confidence interval coverage degraded with increasing $\rho$; BIC exhibited the largest decline (to 0.925 at $N = 250$, $\rho = 0.70$), consistent with its average selection of only 4.05 of 5 signal variables, which introduces omitted-variable bias and inflates Type I errors in the refit model. LASSO and Elastic Net with $\lambda$`.1se` maintained coverage near 0.93--0.94 across conditions, slightly below the nominal level but more stable than BIC under high correlation. Because coverage is conditional on selection, it should be interpreted as the calibration of intervals among retained signal variables, not as unconditional inferential validity for all true predictors.
 
-**Recommendations.** For valid inference (low bias, correct CI coverage), **Backward (p-val)** is preferred -- near-zero bias, near-nominal FPR and coverage across conditions. For maximizing true signal detection while controlling false positives, **Elastic Net ($\lambda$`.1se`)** is recommended, especially under moderate-to-high predictor correlation. **LASSO ($\lambda$`.min`) and Elastic Net ($\lambda$`.min`)** should be avoided when FPR control is important. Sample size matters: at $N = 500$, most methods achieve TPR above 0.95 even at $\rho = 0.70$.
+Based on these results, the following recommendations are offered. When valid inference on coefficient estimates is the primary goal, Backward (p-val) is preferred, as it achieves near-zero bias, near-nominal FPR, and coverage close to the nominal level. When maximizing true signal detection while controlling false positives, Elastic Net ($\lambda$`.1se`) is recommended, particularly under moderate-to-high predictor correlation. The $\lambda$`.min` variants of LASSO and Elastic Net are inadvisable when false positive control is a priority. Sample size has a substantial moderating effect: at $N = 500$, most methods achieve TPR above 0.95 even at $\rho = 0.70$.
 
 # Future Work
 
-Several extensions would be valuable. First, this study was limited to main-effects linear regression; extending to logistic or Cox proportional hazards regression would directly address applied settings where variable selection is equally important. Second, the simulation assumed exact sparsity with 5 true signals among 20 predictors -- conclusions may differ substantially when most predictors have small non-zero effects, a common real-world scenario. Third, the OLS refit approach does not produce fully valid post-selection inference; selective inference corrections (Lee et al., 2016) could provide coverage guarantees without conditioning on the selected model. Finally, the Elastic Net mixing parameter $\alpha$ was fixed at 0.5 (class decision); allowing $\alpha$ to be tuned by cross-validation alongside $\lambda$ may yield further gains, particularly under high predictor correlation.
+Several extensions would be valuable. First, extending the comparison to generalized linear models and survival models would address settings where variable selection is equally consequential and elevated FPR carries greater practical consequences. Second, the simulation assumed exact sparsity with a fixed signal-to-noise ratio; performance may differ when most predictors carry small non-zero effects or when the number of predictors approaches $N$. Third, the post-selection OLS refit does not provide fully valid inference; selective inference procedures (Lee et al., 2016) could deliver coverage guarantees without conditioning on the selected model, directly addressing the shortfall observed under high correlation. Fourth, jointly cross-validating the Elastic Net mixing parameter $\alpha$ alongside $\lambda$ may yield further gains under high correlation, and comparison with adaptive LASSO variants that achieve oracle properties would provide additional context for the bias results.
 
 \newpage
 
 # Tables and Figures
 
-```{r table1, fig.cap="Table 1. Simulation parameter settings.", out.width="70%"}
-knitr::include_graphics("../Results/Tables/Table1_SimulationParameters.png")
+```{r table1}
+t1 <- data.frame(
+  Parameter = c(
+    "Replications (B)", "Total predictors (p)", "Signal predictors",
+    "Null predictors", "True coefficients (X1-X5)",
+    "Error SD ($\\sigma$)", "Sample sizes (N)", "Correlation structure",
+    "Correlation values ($\\rho$) [class]", "Backward threshold [class]",
+    "LASSO $\\lambda$ choices [class]", "Elastic Net $\\alpha$ [class]",
+    "Elastic Net $\\lambda$ choices [class]", "CV folds [class]"
+  ),
+  Value = c(
+    "1,000", "20", "X1--X5", "X6--X20",
+    "1/6, 2/6, 3/6, 4/6, 5/6",
+    "1", "250, 500", "Exchangeable (compound symmetry)",
+    "0, 0.35, 0.70", "p-value $<$ 0.10",
+    "$\\lambda$.min, $\\lambda$.1se", "0.50",
+    "$\\lambda$.min, $\\lambda$.1se", "10"
+  ), stringsAsFactors = FALSE
+)
+knitr::kable(t1, caption = "Simulation parameter settings.",
+             col.names = c("Parameter", "Value"),
+             booktabs = TRUE, escape = FALSE,
+             format = "latex") |>
+  kableExtra::kable_styling(latex_options = c("hold_position","striped"),
+                            font_size = 9)
 ```
 
-```{r fig1, fig.cap="Figure 1. Mean True Positive Rate by method, sample size, and correlation. Orange dashed line = perfect TPR of 1.0.", out.width="100%"}
+```{r table2, message=FALSE, warning=FALSE}
+library(dplyr)
+results_tbl <- readRDS("../Results/simulation_results.rds")
+t2 <- results_tbl |>
+  group_by(Method) |>
+  summarise(
+    `Mean TPR` = round(mean(Mean_TPR), 3),
+    `SD TPR`   = round(sd(Mean_TPR),   3),
+    `Mean FPR` = round(mean(Mean_FPR), 3),
+    `SD FPR`   = round(sd(Mean_FPR),   3),
+    .groups = "drop"
+  ) |>
+  arrange(Method)
+knitr::kable(t2,
+  caption = "Mean true positive rate (TPR) and false positive rate (FPR) by method, averaged across all six simulation conditions ($N \\in \\{250, 500\\}$, $\\rho \\in \\{0, 0.35, 0.70\\}$). Standard deviations across conditions are shown in parentheses.",
+  col.names = c("Method", "Mean TPR", "SD TPR", "Mean FPR", "SD FPR"),
+  booktabs = TRUE, escape = FALSE, format = "latex") |>
+  kableExtra::kable_styling(latex_options = c("hold_position","striped"),
+                            font_size = 9) |>
+  kableExtra::column_spec(1, width = "5cm")
+```
+
+```{r table3, message=FALSE, warning=FALSE}
+library(dplyr)
+results <- readRDS("../Results/simulation_results.rds")
+t3 <- results |>
+  mutate(
+    `Mean Bias`  = sprintf("%.4f", Mean_Bias),
+    `95\\% Cov`  = sprintf("%.3f",  Mean_Cov),
+    `Avg Sel.`   = sprintf("%.2f",  Mean_N_Sel_Signal)
+  ) |>
+  select(N, rho, Method, `Mean Bias`, `95\\% Cov`, `Avg Sel.`) |>
+  arrange(N, rho, Method)
+knitr::kable(t3,
+  caption = "Mean coefficient bias (unconditional) and empirical 95\\% confidence interval coverage (conditional on selection) for $X_1$--$X_5$. Avg Sel.\\ = average number of signal variables selected per replication.",
+  booktabs = TRUE, escape = FALSE,
+  format = "latex",
+  longtable = TRUE) |>
+  kableExtra::kable_styling(latex_options = c("repeat_header","striped"),
+                            font_size = 8) |>
+  kableExtra::column_spec(3, width = "4cm")
+```
+
+```{r fig1, fig.cap="Figure 1. Mean true positive rate by method, sample size, and correlation. The dashed reference line indicates perfect TPR of 1.0.", out.width="100%"}
 knitr::include_graphics("../Results/Figures/Figure1_TruePositiveRate.png")
 ```
 
-```{r fig5, fig.cap="Figure 5. TPR vs. FPR scatter (ROC-style). Upper-left corner is ideal.", out.width="100%"}
+```{r fig5, fig.cap="Figure 2. Mean true positive rate versus mean false positive rate by method (ROC-style scatter). The upper-left region represents ideal performance.", out.width="100%"}
 knitr::include_graphics("../Results/Figures/Figure5_TPR_vs_FPR_scatter.png")
 ```
 
-```{r fig3, fig.cap="Figure 3. Mean coefficient bias for signal variables X1-X5 (unconditional: non-selected = 0). Negative values indicate shrinkage bias.", out.width="100%"}
-knitr::include_graphics("../Results/Figures/Figure3_CoefficientBias.png")
+```{r fig7, fig.cap="Figure 3. Per-variable mean coefficient bias at N=500, rho=0 (unconditional; non-selected variables contribute zero). Solid lines denote stepwise methods; dashed lines denote LASSO; dotted lines denote Elastic Net.", out.width="90%"}
+knitr::include_graphics("../Results/Figures/Figure7_PerVariable_Bias_N500_rho0.png")
 ```
 
-```{r fig8, fig.cap="Figure 8. Effect of predictor correlation on mean TPR. BIC degrades most steeply; Elastic Net methods are most robust.", out.width="95%"}
+```{r fig8, fig.cap="Figure 4. Effect of predictor correlation on mean TPR by method and sample size. Solid lines denote stepwise methods; dashed lines denote LASSO; dotted lines denote Elastic Net.", out.width="95%"}
 knitr::include_graphics("../Results/Figures/Figure8_Correlation_Effect_on_TPR.png")
-```
-
-```{r table3, fig.cap="Table 3. Mean coefficient bias (unconditional) and 95% CI coverage (conditional on selection) for X1-X5, with average signal variables selected.", out.width="80%"}
-knitr::include_graphics("../Results/Tables/Table3_Bias_Coverage.png")
 ```
 
 # References
@@ -136,21 +202,20 @@ Zou, H., and Hastie, T. (2005). Regularization and variable selection via the el
 
 All statistical code used to produce this report is available at:
 
-**GitHub:** [https://github.com/[your-username]/BIOS6624-Project4](https://github.com/[your-username]/BIOS6624-Project4)
+GitHub: https://github.com/Charl3456/BIOS6624.git
 
-This is a simulation study; no external data file is required. The script should be run with `Project_4/` as the working directory. The random seed `set.seed(2026)` is the first executable line, ensuring exact reproducibility. Code is fully commented so another analyst can reproduce every result without guesswork.
+This is a simulation study; no external data file is required. The script should be run with `Project_4/` as the working directory. The random seed `set.seed(2026)` is the first executable line, ensuring exact reproducibility. Code is fully documented so that another analyst can reproduce every result, table, and figure without ambiguity.
 
-| Location | File | Description |
-|---|---|---|
-| `Code/` | `Project4_VarSelection_Simulation.R` | Main simulation: data generation, all 7 methods, metric computation, figure/table output |
-| `Code/` | `Project4_RegenerateFigures.R` | Regenerate figures/tables from saved results without re-running simulation |
-| `Code/` | `Project4_FinalReport.Rmd` | R Markdown source for this report |
-| `Results/` | `simulation_results.csv` | Full condition-level summary (all metrics, all methods) |
-| `Results/` | `simulation_results.rds` | Full results as R object |
-| `Results/` | `sessionInfo.txt` | R session information (package versions) for exact reproducibility |
-| `Results/Figures/` | `Figure1_TruePositiveRate.png` | Mean TPR by method, N, and rho |
-| `Results/Figures/` | `Figure3_CoefficientBias.png` | Mean coefficient bias (unconditional) |
-| `Results/Figures/` | `Figure5_TPR_vs_FPR_scatter.png` | ROC-style TPR vs. FPR scatter |
-| `Results/Figures/` | `Figure8_Correlation_Effect_on_TPR.png` | Effect of correlation on TPR |
-| `Results/Tables/` | `Table1_SimulationParameters.png` | Full simulation parameter settings |
-| `Results/Tables/` | `Table3_Bias_Coverage.png` | Coefficient bias and 95% CI coverage |
+Code (`Code/` directory):
+
+- `Project4_VarSelection_Simulation.R` --- main simulation: data generation, all 7 methods, metric computation, figures, and tables
+- `Project4_RegenerateFigures.R` --- regenerate all figures and tables from saved results without re-running the simulation
+- `Project4_FinalReport.Rmd` --- R Markdown source for this report
+
+Results (`Results/` directory):
+
+- `simulation_results.csv` --- full condition-level summary (all metrics, all methods)
+- `simulation_results.rds` --- full results as R object (preserves factor levels)
+- `sessionInfo.txt` --- R session information and package versions
+
+Figures (`Results/Figures/`): `Figure1_TruePositiveRate.png` (Figure 1), `Figure5_TPR_vs_FPR_scatter.png` (Figure 2), `Figure7_PerVariable_Bias_N500_rho0.png` (Figure 3), `Figure8_Correlation_Effect_on_TPR.png` (Figure 4).
