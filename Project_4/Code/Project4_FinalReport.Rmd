@@ -135,7 +135,7 @@ t2 <- results_tbl |>
   ) |>
   arrange(Method)
 knitr::kable(t2,
-  caption = "Mean true positive rate (TPR) and false positive rate (FPR) by method, averaged across all six simulation conditions ($N \\in \\{250, 500\\}$, $\\rho \\in \\{0, 0.35, 0.70\\}$). Standard deviations across conditions are shown in parentheses.",
+  caption = "Mean true positive rate (TPR) and false positive rate (FPR) by method, averaged across all six simulation conditions ($N \\in \\{250, 500\\}$, $\\rho \\in \\{0, 0.35, 0.70\\}$). Standard deviations across the six condition-level means are shown in parentheses.",
   col.names = c("Method", "Mean TPR", "SD TPR", "Mean FPR", "SD FPR"),
   booktabs = TRUE, escape = FALSE, format = "latex") |>
   kableExtra::kable_styling(latex_options = c("hold_position","striped"),
