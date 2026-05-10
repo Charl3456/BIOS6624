@@ -167,7 +167,6 @@ install.packages(c("glmnet", "MASS", "ggplot2", "knitr", "kableExtra", "dplyr", 
 **Course:** Biostatistics — Applied Regression / Statistical Computing  
 **Assignment:** Project 4 — Simulation Study: Variable Selection  
 **Semester:** Spring 2026  
-**Instructor:** Prof. Wynn
 
 ---
 

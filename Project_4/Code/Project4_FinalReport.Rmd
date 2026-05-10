@@ -218,4 +218,12 @@ Results (`Results/` directory):
 - `simulation_results.rds` --- full results as R object (preserves factor levels)
 - `sessionInfo.txt` --- R session information and package versions
 
-Figures (`Results/Figures/`): `Figure1_TruePositiveRate.png` (Figure 1), `Figure5_TPR_vs_FPR_scatter.png` (Figure 2), `Figure7_PerVariable_Bias_N500_rho0.png` (Figure 3), `Figure8_Correlation_Effect_on_TPR.png` (Figure 4).
+Figures (`Results/Figures/`): 
+
+`Figure1_TruePositiveRate.png` (Figure 1), 
+
+`Figure5_TPR_vs_FPR_scatter.png` (Figure 2), 
+
+`Figure7_PerVariable_Bias_N500_rho0.png` (Figure 3), 
+
+`Figure8_Correlation_Effect_on_TPR.png` (Figure 4).
