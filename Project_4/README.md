@@ -1,4 +1,4 @@
-# Project 4 — Variable Selection Methods in Linear Regression: A Simulation Study
+# Project 4
 
 ## Overview
 
