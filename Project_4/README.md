@@ -94,7 +94,7 @@ Project4/
 │
 └── Report/
     ├── Project4_FinalReport.Rmd     ← Final reproducible report
-    └── Project4_FinalReport.pdf     ← Compiled output
+    └── Project4_FinalReport.pdf     
 ```
 
 ---
